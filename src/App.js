@@ -44,10 +44,9 @@ class App extends Component {
               Add Publisher
             </button>
             {this.state.publisherList.map((publisher) => (
-              <React.Fragment>
+              <React.Fragment key={publisher.id}>
                 <Publisher
                   apiURL={this.state.apiURL}
-                  topicList={this.state.topicList}
                   updateTopicList={this.handleRetrieveActiveTopics}
                   key={publisher.id}
                   id={publisher.id}
@@ -66,7 +65,7 @@ class App extends Component {
               Add Subscriber
             </button>
             {this.state.subscriberList.map((subscriber) => (
-              <React.Fragment>
+              <React.Fragment key={subscriber.id}>
                 <Subscriber
                   className="col-sm-6"
                   apiURL={this.state.apiURL}

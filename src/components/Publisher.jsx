@@ -2,10 +2,21 @@ import React, { Component } from "react";
 
 class Publisher extends Component {
   state = {
+    publisherID: -1,
     topicInputValue: "",
     topicMessage: "",
     selectedTopic: "",
+    activeTopics: [],
   };
+
+  componentDidMount() {
+    this.getSubscriberID();
+  }
+
+  componentWillUnmount() {
+    this.destroyAllOwnedTopics();
+    setTimeout(() => this.props.updateTopicList(), 500);
+  }
 
   render() {
     return (
@@ -64,7 +75,7 @@ class Publisher extends Component {
                 onChange={this.handleChange}
                 className="custom-select col-10"
               >
-                {this.props.topicList.map((topic) => (
+                {this.state.activeTopics.map((topic) => (
                   <option key={topic}>{topic}</option>
                 ))}
               </select>
@@ -85,25 +96,35 @@ class Publisher extends Component {
 
   handleTopicCreation = () => {
     this.handlePostRequest(
-      "createTopic?topicName=" + this.state.topicInputValue
+      "createTopic?id=" +
+        this.state.publisherID +
+        "&topicName=" +
+        this.state.topicInputValue
     );
   };
 
   handleTopicDeletion = () => {
     this.handlePostRequest(
-      "deleteTopic?topicName=" + this.state.topicInputValue
+      "deleteTopic?id=" +
+        this.state.publisherID +
+        "&topicName=" +
+        this.state.topicInputValue
     );
   };
 
   handlePublishMessage = () => {
-    if (this.props.topicList.length > 0) {
-      if (this.state.selectedTopic.length === 0) {
-        this.state.selectedTopic = this.props.topicList[0];
+    if (this.state.activeTopics.length > 0) {
+      let topicToPublish = this.state.activeTopics[0];
+
+      if (this.state.selectedTopic.length > 0) {
+        topicToPublish = this.state.selectedTopic;
       }
 
       this.handlePostRequest(
-        "publishMessage?topicName=" +
-          this.state.selectedTopic +
+        "publishMessage?id=" +
+          this.state.publisherID +
+          "&topicName=" +
+          topicToPublish +
           "&messageContent=" +
           this.state.topicMessage
       );
@@ -112,6 +133,27 @@ class Publisher extends Component {
     } else {
       alert("There are no active topics at this time");
     }
+  };
+
+  refreshActiveTopics = () => {
+    fetch(
+      this.props.apiURL +
+        "getPublisherActiveTopics?id=" +
+        this.state.publisherID
+    )
+      .then((resp) => resp.json())
+      .then((data) => {
+        if (data.success === true) {
+          this.setState({
+            activeTopics: data.message,
+          });
+        } else {
+          alert("Error refreshing active topic list");
+        }
+      })
+      .catch((error) => {
+        alert("Error refreshing active topic list");
+      });
   };
 
   handlePostRequest = (endpoint) => {
@@ -127,10 +169,39 @@ class Publisher extends Component {
         message += data.message;
         alert(message);
         this.props.updateTopicList();
+        this.refreshActiveTopics();
       })
       .catch((error) => {
         alert("An error has occured.");
       });
+  };
+
+  getSubscriberID = () => {
+    fetch(this.props.apiURL + "initializePublisher")
+      .then((resp) => resp.json())
+      .then((data) => {
+        if (data.success === true) {
+          this.setState({
+            publisherID: data.message,
+          });
+        } else {
+          alert("Could not initialize subscriber ID from server");
+        }
+      })
+      .catch((error) => {
+        alert("Could not initialize subscriber ID from server");
+      });
+  };
+
+  destroyAllOwnedTopics = () => {
+    fetch(
+      this.props.apiURL +
+        "removeAllSubscriberActiveTopics?id=" +
+        this.state.publisherID, // Bypass CORS
+      {
+        method: "POST",
+      }
+    );
   };
 
   handleChange = (event) => {
