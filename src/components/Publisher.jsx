@@ -1,6 +1,10 @@
 import React, { Component } from "react";
+import { apiURL } from '../state/api/urls';
+import { TopicContext } from '../state/context/TopicContext';
 
 class Publisher extends Component {
+  static contextType = TopicContext;
+
   state = {
     publisherID: -1,
     topicInputValue: "",
@@ -15,7 +19,7 @@ class Publisher extends Component {
 
   componentWillUnmount() {
     this.destroyAllOwnedTopics();
-    setTimeout(() => this.props.updateTopicList(), 500);
+    setTimeout(() => this.context.fetchActiveTopics(), 500);
   }
 
   render() {
@@ -94,23 +98,9 @@ class Publisher extends Component {
     );
   }
 
-  handleTopicCreation = () => {
-    this.handlePostRequest(
-      "createTopic?id=" +
-        this.state.publisherID +
-        "&topicName=" +
-        this.state.topicInputValue
-    );
-  };
+  handleTopicCreation = () => this.handlePostRequest(`createTopic?id=${this.state.publisherID}&topicName=${this.state.topicInputValue}`);
 
-  handleTopicDeletion = () => {
-    this.handlePostRequest(
-      "deleteTopic?id=" +
-        this.state.publisherID +
-        "&topicName=" +
-        this.state.topicInputValue
-    );
-  };
+  handleTopicDeletion = () => this.handlePostRequest(`deleteTopic?id=${this.state.publisherID}&topicName=${this.state.topicInputValue}`);
 
   handlePublishMessage = () => {
     if (this.state.activeTopics.length > 0) {
@@ -120,14 +110,7 @@ class Publisher extends Component {
         topicToPublish = this.state.selectedTopic;
       }
 
-      this.handlePostRequest(
-        "publishMessage?id=" +
-          this.state.publisherID +
-          "&topicName=" +
-          topicToPublish +
-          "&messageContent=" +
-          this.state.topicMessage
-      );
+      this.handlePostRequest(`publishMessage?id=${this.state.publisherID}&topicName=${topicToPublish}&messageContent=${this.state.topicMessage}`);
 
       this.setState({ topicMessage: [] });
     } else {
@@ -135,78 +118,31 @@ class Publisher extends Component {
     }
   };
 
-  refreshActiveTopics = () => {
-    fetch(
-      this.props.apiURL +
-        "getPublisherActiveTopics?id=" +
-        this.state.publisherID
-    )
-      .then((resp) => resp.json())
-      .then((data) => {
-        if (data.success === true) {
-          this.setState({
-            activeTopics: data.message,
-          });
-        } else {
-          alert("Error refreshing active topic list");
-        }
-      })
-      .catch((error) => {
-        alert("Error refreshing active topic list");
-      });
-  };
+  refreshActiveTopics = () => 
+    fetch(apiURL + "getPublisherActiveTopics?id=" + this.state.publisherID)
+      .then(resp => resp.json())
+      .then(data => data.success === true ? this.setState({ activeTopics: data.message }) : alert("Error refreshing active topic list"))
+      .catch(() => alert("Error refreshing active topic list"));
 
-  handlePostRequest = (endpoint) => {
-    fetch(
-      this.props.apiURL + endpoint, // Bypass CORS
-      {
-        method: "POST",
-      }
-    )
-      .then((resp) => resp.json())
-      .then((data) => {
-        let message = data.success ? "Success: " : "Failure: ";
-        message += data.message;
-        alert(message);
-        this.props.updateTopicList();
+  handlePostRequest = endpoint =>
+    fetch(apiURL + endpoint, { method: "POST" })
+      .then(resp => resp.json())
+      .then(data => {
+        alert(`${data.success ? "Success:" : "Failure:"} ${data.message}`);
+        this.context.fetchActiveTopics();
         this.refreshActiveTopics();
       })
-      .catch((error) => {
-        alert("An error has occured.");
-      });
-  };
+      .catch(() => alert("An error has occured."));
 
-  getSubscriberID = () => {
-    fetch(this.props.apiURL + "initializePublisher")
-      .then((resp) => resp.json())
-      .then((data) => {
-        if (data.success === true) {
-          this.setState({
-            publisherID: data.message,
-          });
-        } else {
-          alert("Could not initialize subscriber ID from server");
-        }
-      })
-      .catch((error) => {
-        alert("Could not initialize subscriber ID from server");
-      });
-  };
+  getSubscriberID = () =>
+    fetch(apiURL + "initializePublisher")
+      .then(resp => resp.json())
+      .then(data => data.success === true ? this.setState({ publisherID: data.message }) : alert("Could not initialize subscriber ID from server"))
+      .catch(() => alert("Could not initialize subscriber ID from server"));
 
-  destroyAllOwnedTopics = () => {
-    fetch(
-      this.props.apiURL +
-        "removeAllSubscriberActiveTopics?id=" +
-        this.state.publisherID, // Bypass CORS
-      {
-        method: "POST",
-      }
-    );
-  };
+  destroyAllOwnedTopics = () => fetch(`${apiURL}removeAllSubscriberActiveTopics?id=${this.state.publisherID}`, { method: "POST", });
 
-  handleChange = (event) => {
-    this.setState({ [event.target.name]: event.target.value });
-  };
+  handleChange = event => this.setState({ [event.target.name]: event.target.value });
 }
 
 export default Publisher;
